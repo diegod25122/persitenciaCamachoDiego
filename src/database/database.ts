@@ -2,9 +2,7 @@ import {SQLiteDatabase} from 'expo-sqlite';
 
 //nombre de la base de datos que se crea dentro del celurlar
 
-export const DATABASE_NAME = 'gastos_db';
-
-// Version actual del esquema. Se sube en 1 cada vez que cambia la tabla.
+export const DATABASE_NAME = 'gastos_db'; // Version actual del esquema. Se sube en 1 cada vez que cambia la tabla.
 // SQLite guarda este numero en "PRAGMA user_version" (arranca en 0).
 const DATABASE_VERSION = 1;
 
@@ -34,10 +32,22 @@ export async function initDatabase(db : SQLiteDatabase):Promise<void>{
 
     if (currentVersion < 1) {
         // Version 1: ruta de la foto de la factura (opcional, por eso puede ser null)
-        await db.execAsync('ALTER TABLE expenses ADD COLUMN factura_adjuntar TEXT');
-    }
+            // Se revisa antes si la columna ya existe: si se agrega dos veces SQLite lanza
+        // "duplicate column name" y la app no arranca
+        const columns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(expenses)');
+        if (!columns.some((column) => column.name === 'factura_adjuntar')) {
+            await db.execAsync('ALTER TABLE expenses ADD COLUMN factura_adjuntar TEXT');
+        }
+}
 
     if (currentVersion < DATABASE_VERSION) {
         await db.execAsync(`PRAGMA user_version = ${DATABASE_VERSION}`);
     }
+
+        `
+
+    )
+       `
+
+    
 }
