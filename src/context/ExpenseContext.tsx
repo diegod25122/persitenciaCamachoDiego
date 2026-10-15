@@ -1,21 +1,29 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { Expense } from '@/types/expense';
+import { Expense, SortOption } from '@/types/expense';
 import { useSQLiteContext } from 'expo-sqlite';
-import { getAllExpenses, insertExpense } from '@/database/expenseRepository';
- 
+import {
+  getAllExpenses,
+  insertExpense,
+  updateExpense as updateExpenseInDb,
+  deleteExpense as deleteExpenseInDb,
+} from '@/database/expenseRepository';
+import { deleteReceipt, saveReceipt } from '@/utils/receiptStorage';
+
 interface ExpenseContextType {
   expenses: Expense[];
   // true mientras se leen los gastos guardados al abrir la app
   isLoading: boolean;
   // Ahora devuelve una Promise porque guardar en el telefono es asincrono
   addExpense: (expense: Omit<Expense, 'id'>) => Promise<void>;
+  updateExpense: (expense: Expense) => Promise<void>;
+  deleteExpense: (id: string) => Promise<void>;
   getMonthlyTotal: () => number;
-  getCurrentMonthExpenses: () => Expense[];
+  getCurrentMonthExpenses: (sortBy?: SortOption) => Expense[];
 }
- 
+
 // Arranca en undefined para poder avisar si alguien usa el hook sin Provider
 const ExpenseContext = createContext<ExpenseContextType | undefined>(undefined);
- 
+
 // Fase 3: los gastos se guardan en una base de datos SQLite dentro del telefono.
 // La interfaz del contexto es la misma de la fase 2, por eso las pantallas no cambian.
 export const ExpenseProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -23,7 +31,7 @@ export const ExpenseProvider: React.FC<{ children: ReactNode }> = ({ children })
   const db = useSQLiteContext();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [isLoading, setIsLoading] = useState(true);
- 
+
   // Se ejecuta al montar el Provider (al abrir la app).
   // db va en las dependencias porque se usa adentro; no cambia mientras la app esta abierta.
   useEffect(() => {
@@ -39,53 +47,105 @@ export const ExpenseProvider: React.FC<{ children: ReactNode }> = ({ children })
         setIsLoading(false);
       }
     };
- 
+
     cargarGastos();
   }, [db]);
- 
+
   const addExpense = async (expense: Omit<Expense, 'id'>) => {
+    // Si hay factura, primero se copia la foto a la carpeta de la app
+    const facturaAdjunta = expense.facturaAdjunta
+      ? await saveReceipt(expense.facturaAdjunta)
+      : undefined;
+
     // Timestamp + algo aleatorio para que dos gastos seguidos no repitan id
     const newExpense: Expense = {
       ...expense,
+      facturaAdjunta,
       id: Date.now().toString() + Math.random().toString(36).slice(2, 11),
     };
- 
+
     // Primero se inserta en la base y DESPUES se actualiza la pantalla.
     // Si el INSERT falla, lanza el error y el estado no cambia.
     // Solo se escribe una fila: ya no hace falta reescribir toda la lista.
-    await insertExpense(db, newExpense);
- 
+    try {
+      await insertExpense(db, newExpense);
+    } catch (error) {
+      deleteReceipt(facturaAdjunta);
+      throw error;
+    }
+
     // Va al principio para que el ultimo gasto salga arriba
     setExpenses((prev) => [newExpense, ...prev]);
   };
- 
-  const getCurrentMonthExpenses = () => {
+
+  const updateExpense = async (expense: Expense) => {
+    const previous = expenses.find((e) => e.id === expense.id);
+
+    // Solo se copia la foto si es nueva (si es la misma, saveReceipt la devuelve igual)
+    const facturaAdjunta = expense.facturaAdjunta
+      ? await saveReceipt(expense.facturaAdjunta)
+      : undefined;
+    const updated: Expense = { ...expense, facturaAdjunta };
+
+    try {
+      await updateExpenseInDb(db, updated);
+    } catch (error) {
+      if (facturaAdjunta !== previous?.facturaAdjunta) deleteReceipt(facturaAdjunta);
+      throw error;
+    }
+
+    // Si la factura cambio o se quito, se borra la foto vieja
+    if (previous?.facturaAdjunta && previous.facturaAdjunta !== facturaAdjunta) {
+      deleteReceipt(previous.facturaAdjunta);
+    }
+
+    setExpenses((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
+  };
+
+  const deleteExpense = async (id: string) => {
+    const previous = expenses.find((e) => e.id === id);
+    await deleteExpenseInDb(db, id);
+    deleteReceipt(previous?.facturaAdjunta);
+    setExpenses((prev) => prev.filter((e) => e.id !== id));
+  };
+
+  // sortBy: 'recientes' (fecha mas nueva primero) o 'mayorMonto' (gasto mas alto primero)
+  const getCurrentMonthExpenses = (sortBy: SortOption = 'recientes') => {
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
- 
-    return expenses.filter((expense) => {
+
+    const monthExpenses = expenses.filter((expense) => {
       const expenseDate = new Date(expense.date);
       return (
         expenseDate.getMonth() === currentMonth &&
         expenseDate.getFullYear() === currentYear
       );
     });
+
+    // sort modifica el arreglo, pero filter ya devolvio uno nuevo, asi que no afecta al estado
+    return monthExpenses.sort((a, b) =>
+      sortBy === 'mayorMonto'
+        ? b.amount - a.amount
+        : new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
   };
- 
+
   const getMonthlyTotal = () => {
     return getCurrentMonthExpenses().reduce(
       (total, expense) => total + expense.amount,
       0
     );
   };
- 
+
   return (
     <ExpenseContext.Provider
       value={{
         expenses,
         isLoading,
         addExpense,
+        updateExpense,
+        deleteExpense,
         getMonthlyTotal,
         getCurrentMonthExpenses,
       }}
@@ -94,7 +154,7 @@ export const ExpenseProvider: React.FC<{ children: ReactNode }> = ({ children })
     </ExpenseContext.Provider>
   );
 };
- 
+
 export const useExpenses = () => {
   const context = useContext(ExpenseContext);
   if (!context) {

@@ -4,6 +4,10 @@ import {SQLiteDatabase} from 'expo-sqlite';
 
 export const DATABASE_NAME = 'gastos_db';
 
+// Version actual del esquema. Se sube en 1 cada vez que cambia la tabla.
+// SQLite guarda este numero en "PRAGMA user_version" (arranca en 0).
+const DATABASE_VERSION = 1;
+
 //se ejecuta una vez que se abre la bdd (llamada sqliteprovider)
 //aqui se crean tablas si no existen aun
 export async function initDatabase(db : SQLiteDatabase):Promise<void>{
@@ -22,4 +26,18 @@ export async function initDatabase(db : SQLiteDatabase):Promise<void>{
         `
 
     )
+
+    // Migraciones: si el telefono ya tenia la base vieja, se le agregan
+    // las columnas nuevas sin perder los gastos guardados
+    const result = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
+    const currentVersion = result?.user_version ?? 0;
+
+    if (currentVersion < 1) {
+        // Version 1: ruta de la foto de la factura (opcional, por eso puede ser null)
+        await db.execAsync('ALTER TABLE expenses ADD COLUMN factura_adjuntar TEXT');
+    }
+
+    if (currentVersion < DATABASE_VERSION) {
+        await db.execAsync(`PRAGMA user_version = ${DATABASE_VERSION}`);
+    }
 }

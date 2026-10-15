@@ -15,9 +15,13 @@ export interface Expense {
   id: string;
   amount: number; // en dolares
   category: Category;
-  date: Date;
+  date: Date; // dia en que se hizo el gasto, lo elige el usuario (obligatorio)
   description?: string;
+  facturaAdjunta?: string; // uri de la foto del comprobante/factura (opcional)
 }
+
+// Como se ordena la lista de gastos en la pantalla principal
+export type SortOption = 'recientes' | 'mayorMonto';
 
 // Mismo orden en que se muestran en el selector del modal
 export const CATEGORIES: Category[] = [

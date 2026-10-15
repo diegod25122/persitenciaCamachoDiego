@@ -8,12 +8,26 @@ import { ExpenseItem } from '@/components/ExpenseItem';
 import { AddExpenseModal } from '@/components/AddExpenseModal';
 import { useExpenses } from '@/context/ExpenseContext';
 import { LiquidGlassColors, Spacing } from '@/constants/theme';
+import { Expense, SortOption } from '@/types/expense';
+
+const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: 'recientes', label: '🕒 Recientes' },
+  { value: 'mayorMonto', label: '💰 Mayor monto' },
+];
 
 // Pantalla principal: total del mes, lista de gastos y el boton + para agregar
 export default function HomeScreen() {
   const { getCurrentMonthExpenses, isLoading } = useExpenses();
   const [modalVisible, setModalVisible] = useState(false);
-  const expenses = getCurrentMonthExpenses();
+  // null = agregar un gasto nuevo; con un gasto = editarlo
+  const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
+  const [sortBy, setSortBy] = useState<SortOption>('recientes');
+  const expenses = getCurrentMonthExpenses(sortBy);
+
+  const openModal = (expense: Expense | null) => {
+    setSelectedExpense(expense);
+    setModalVisible(true);
+  };
 
   return (
     <View style={styles.container}>
@@ -49,22 +63,55 @@ export default function HomeScreen() {
                 </Text>
               </View>
             ) : (
-              <FlatList
-                data={expenses}
-                keyExtractor={(item) => item.id}
-                renderItem={({ item, index }) => (
-                  <ExpenseItem expense={item} index={index} />
-                )}
-                contentContainerStyle={styles.listContent}
-                showsVerticalScrollIndicator={false}
-              />
+              <>
+                {/* Filtro de ordenamiento: el elegido se pinta con el gradiente */}
+                <View style={styles.sortRow}>
+                  {SORT_OPTIONS.map((option) => (
+                    <TouchableOpacity
+                      key={option.value}
+                      style={styles.sortButton}
+                      onPress={() => setSortBy(option.value)}
+                      activeOpacity={0.8}
+                    >
+                      {sortBy === option.value ? (
+                        <LinearGradient
+                          colors={[LiquidGlassColors.primary, LiquidGlassColors.secondary]}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                          style={styles.sortInner}
+                        >
+                          <Text style={styles.sortTextActive}>{option.label}</Text>
+                        </LinearGradient>
+                      ) : (
+                        <View style={styles.sortInner}>
+                          <Text style={styles.sortText}>{option.label}</Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <FlatList
+                  data={expenses}
+                  keyExtractor={(item) => item.id}
+                  renderItem={({ item, index }) => (
+                    <ExpenseItem
+                      expense={item}
+                      index={index}
+                      onPress={() => openModal(item)}
+                    />
+                  )}
+                  contentContainerStyle={styles.listContent}
+                  showsVerticalScrollIndicator={false}
+                />
+              </>
             )}
           </View>
 
           {/* Boton + de la esquina */}
           <TouchableOpacity
             style={styles.fab}
-            onPress={() => setModalVisible(true)}
+            onPress={() => openModal(null)}
             activeOpacity={0.8}
           >
             <LinearGradient
@@ -80,6 +127,7 @@ export default function HomeScreen() {
           <AddExpenseModal
             visible={modalVisible}
             onClose={() => setModalVisible(false)}
+            expense={selectedExpense}
           />
         </SafeAreaView>
       </LinearGradient>
@@ -136,6 +184,33 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingBottom: 100,
+  },
+  sortRow: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+    marginBottom: Spacing.three,
+  },
+  sortButton: {
+    flex: 1,
+    borderRadius: Spacing.two,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: LiquidGlassColors.glassBorder,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+  },
+  sortInner: {
+    paddingVertical: Spacing.two,
+    alignItems: 'center',
+  },
+  sortText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: LiquidGlassColors.glassText,
+  },
+  sortTextActive: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: LiquidGlassColors.glassTextLight,
   },
   emptyState: {
     flex: 1,

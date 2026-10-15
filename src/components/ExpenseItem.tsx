@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Expense, CATEGORY_ICONS } from '@/types/expense';
@@ -9,10 +9,11 @@ import { LiquidGlassColors, Spacing } from '@/constants/theme';
 interface ExpenseItemProps {
   expense: Expense;
   index: number; // sirve para que cada fila entre un poquito despues de la anterior
+  onPress?: () => void; // al tocar la fila se abre el gasto para editarlo o eliminarlo
 }
 
 // Una fila de la lista de gastos
-export const ExpenseItem: React.FC<ExpenseItemProps> = ({ expense, index }) => {
+export const ExpenseItem: React.FC<ExpenseItemProps> = ({ expense, index, onPress }) => {
   // Queda algo como "15 oct"
   const formattedDate = new Date(expense.date).toLocaleDateString('es-ES', {
     day: '2-digit',
@@ -31,6 +32,7 @@ export const ExpenseItem: React.FC<ExpenseItemProps> = ({ expense, index }) => {
       entering={FadeInDown.delay(index * 100).springify()}
       style={styles.container}
     >
+      <TouchableOpacity activeOpacity={0.7} onPress={onPress}>
       <GlassCard>
         <View style={styles.content}>
           <View style={styles.leftSection}>
@@ -55,10 +57,14 @@ export const ExpenseItem: React.FC<ExpenseItemProps> = ({ expense, index }) => {
           </View>
           <View style={styles.rightSection}>
             <Text style={styles.amount}>{formattedAmount}</Text>
-            <Text style={styles.date}>{formattedDate}</Text>
+            <Text style={styles.date}>
+              {expense.facturaAdjunta ? '📎 ' : ''}
+              {formattedDate}
+            </Text>
           </View>
         </View>
       </GlassCard>
+      </TouchableOpacity>
     </Animated.View>
   );
 };
