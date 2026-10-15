@@ -8,7 +8,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GlassCard } from './GlassCard';
-import { LiquidGlassColors, Spacing } from '@/constants/theme';
+import { LiquidGlassColors, LiquidGlassGradients, Spacing } from '@/constants/theme';
 import { useExpenses } from '@/context/ExpenseContext';
 
 // Muestra el mes y el total gastado
@@ -47,7 +47,7 @@ export const MonthlyHeader: React.FC = () => {
       <GlassCard style={styles.card}>
         <LinearGradient
           // Con algo de transparencia para que se vea el blur de la tarjeta
-          colors={['rgba(255, 107, 157, 0.7)', 'rgba(196, 69, 105, 0.7)']}
+          colors={LiquidGlassGradients.card}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.gradient}

@@ -21,8 +21,15 @@ import DateTimePicker, {
   DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
 import { Category, CATEGORIES, CATEGORY_ICONS, Expense } from '@/types/expense';
-import { LiquidGlassColors, Spacing } from '@/constants/theme';
+import { LiquidGlassColors, LiquidGlassGradients, Spacing } from '@/constants/theme';
 import { useExpenses } from '@/context/ExpenseContext';
+import {
+  DESCRIPTION_MAX_LENGTH,
+  sanitizeAmountInput,
+  sanitizeDescription,
+  validateAmount,
+  validateDescription,
+} from '@/utils/validation';
 
 interface AddExpenseModalProps {
   visible: boolean;
@@ -49,29 +56,73 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
   const [facturaAdjunta, setFacturaAdjunta] = useState<string | undefined>();
   const [showIosPicker, setShowIosPicker] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  // Mensajes de error de cada campo (null = sin error)
+  const [amountError, setAmountError] = useState<string | null>(null);
+  const [categoryError, setCategoryError] = useState<string | null>(null);
+  const [descriptionError, setDescriptionError] = useState<string | null>(null);
 
   // Cada vez que se abre el modal se cargan los datos del gasto a editar,
   // o se deja el formulario vacio con la fecha de hoy si es uno nuevo
   useEffect(() => {
     if (!visible) return;
-    setAmount(expense ? expense.amount.toString() : '');
+    // Redondeado a 2 decimales por si hay gastos viejos guardados con mas
+    setAmount(expense ? String(Math.round(expense.amount * 100) / 100) : '');
     setCategory(expense?.category ?? null);
     setDescription(expense?.description ?? '');
     setDate(expense ? new Date(expense.date) : new Date());
     setFacturaAdjunta(expense?.facturaAdjunta);
     setShowIosPicker(false);
+    setAmountError(null);
+    setCategoryError(null);
+    setDescriptionError(null);
   }, [visible, expense]);
 
-  // Se acepta coma o punto como separador decimal
-  const parsedAmount = parseFloat(amount.replace(',', '.'));
-  const isValid = !isNaN(parsedAmount) && parsedAmount > 0 && !!category && !!date;
+  // Solo se acepta la tecla si el texto sigue siendo un numero con max. 2 decimales
+  const handleAmountChange = (text: string) => {
+    const sanitized = sanitizeAmountInput(text);
+    if (sanitized === null) return;
+    setAmount(sanitized);
+    if (amountError) setAmountError(null);
+  };
+
+  const handleCategorySelect = (cat: Category) => {
+    setCategory(cat);
+    setCategoryError(null);
+  };
+
+  // Se borran los caracteres especiales al escribir o pegar y se avisa al usuario
+  const handleDescriptionChange = (text: string) => {
+    const { value, hadInvalidChars } = sanitizeDescription(text);
+    setDescription(value);
+    setDescriptionError(
+      hadInvalidChars ? 'Solo se permiten letras, números y espacios.' : null
+    );
+  };
 
   // async porque ahora hay que esperar a que el gasto se guarde en el telefono
   const handleSubmit = async () => {
-    if (!isValid || !category || isSaving) return;
+    if (isSaving) return;
+
+    // Se validan todos los campos y se muestran todos los errores a la vez
+    const newAmountError = validateAmount(amount);
+    const newCategoryError = category ? null : 'Selecciona una categoría para el gasto.';
+    const newDescriptionError = validateDescription(description);
+    setAmountError(newAmountError);
+    setCategoryError(newCategoryError);
+    setDescriptionError(newDescriptionError);
+
+    if (newAmountError || newCategoryError || newDescriptionError || !category) {
+      Alert.alert(
+        'Revisa el formulario',
+        [newAmountError, newCategoryError, newDescriptionError]
+          .filter(Boolean)
+          .join('\n')
+      );
+      return;
+    }
 
     const data = {
-      amount: parsedAmount,
+      amount: parseFloat(amount),
       category,
       date,
       description: description.trim() || undefined,
@@ -224,18 +275,19 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                 </Text>
 
                 <View style={styles.inputSection}>
-                  <Text style={styles.label}>Monto (USD)</Text>
-                  <View style={styles.inputContainer}>
+                  <Text style={styles.label}>Monto (USD) *</Text>
+                  <View style={[styles.inputContainer, amountError && styles.inputError]}>
                     <Text style={styles.currencySymbol}>$</Text>
                     <TextInput
                       style={styles.input}
                       value={amount}
-                      onChangeText={setAmount}
+                      onChangeText={handleAmountChange}
                       placeholder="0.00"
                       keyboardType="decimal-pad"
                       placeholderTextColor={LiquidGlassColors.glassTextSecondary}
                     />
                   </View>
+                  {amountError && <Text style={styles.errorText}>{amountError}</Text>}
                 </View>
 
                 <View style={styles.inputSection}>
@@ -263,7 +315,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                 </View>
 
                 <View style={styles.inputSection}>
-                  <Text style={styles.label}>Categoría</Text>
+                  <Text style={styles.label}>Categoría *</Text>
                   <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
@@ -274,7 +326,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                     {CATEGORIES.map((cat) => (
                       <TouchableOpacity
                         key={cat}
-                        onPress={() => setCategory(cat)}
+                        onPress={() => handleCategorySelect(cat)}
                         style={[
                           styles.categoryButton,
                           category === cat && styles.categoryButtonActive,
@@ -282,10 +334,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                       >
                         {category === cat ? (
                           <LinearGradient
-                            colors={[
-                              LiquidGlassColors.primary,
-                              LiquidGlassColors.secondary,
-                            ]}
+                            colors={LiquidGlassGradients.primary}
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 1 }}
                             style={styles.categoryGradient}
@@ -306,18 +355,30 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
+                  {categoryError && <Text style={styles.errorText}>{categoryError}</Text>}
                 </View>
 
                 <View style={styles.inputSection}>
                   <Text style={styles.label}>Descripción (opcional)</Text>
                   <TextInput
-                    style={[styles.input, styles.descriptionInput]}
+                    style={[
+                      styles.input,
+                      styles.descriptionInput,
+                      descriptionError && styles.inputError,
+                    ]}
                     value={description}
-                    onChangeText={setDescription}
-                    placeholder="Ej: Almuerzo, transporte a la universidad..."
+                    onChangeText={handleDescriptionChange}
+                    placeholder="Ej: Almuerzo en la universidad"
                     placeholderTextColor={LiquidGlassColors.glassTextSecondary}
+                    maxLength={DESCRIPTION_MAX_LENGTH}
                     multiline
                   />
+                  <View style={styles.helperRow}>
+                    <Text style={styles.errorText}>{descriptionError ?? ''}</Text>
+                    <Text style={styles.counterText}>
+                      {description.length}/{DESCRIPTION_MAX_LENGTH}
+                    </Text>
+                  </View>
                 </View>
 
                 <View style={styles.inputSection}>
@@ -360,13 +421,13 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                   <TouchableOpacity
                     style={[
                       styles.submitButton,
-                      (!isValid || isSaving) && styles.submitButtonDisabled,
+                      isSaving && styles.submitButtonDisabled,
                     ]}
                     onPress={handleSubmit}
-                    disabled={!isValid || isSaving}
+                    disabled={isSaving}
                   >
                     <LinearGradient
-                      colors={[LiquidGlassColors.primary, LiquidGlassColors.secondary]}
+                      colors={LiquidGlassGradients.primary}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 1 }}
                       style={styles.submitGradient}
@@ -411,7 +472,7 @@ const styles = StyleSheet.create({
   },
   modalBackground: {
     // Bajito a proposito: si es casi opaco no se ve el blur del fondo
-    backgroundColor: 'rgba(255, 255, 255, 0.45)',
+    backgroundColor: LiquidGlassColors.panelBackground,
     borderTopLeftRadius: Spacing.four,
     borderTopRightRadius: Spacing.four,
   },
@@ -452,7 +513,7 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    backgroundColor: LiquidGlassColors.inputBackground,
     borderRadius: Spacing.two,
     borderWidth: 1,
     borderColor: LiquidGlassColors.glassBorder,
@@ -471,7 +532,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.three,
   },
   descriptionInput: {
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    backgroundColor: LiquidGlassColors.inputBackground,
     borderRadius: Spacing.two,
     borderWidth: 1,
     borderColor: LiquidGlassColors.glassBorder,
@@ -482,7 +543,7 @@ const styles = StyleSheet.create({
   fieldButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    backgroundColor: LiquidGlassColors.inputBackground,
     borderRadius: Spacing.two,
     borderWidth: 1,
     borderColor: LiquidGlassColors.glassBorder,
@@ -498,6 +559,27 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: LiquidGlassColors.glassText,
     textTransform: 'capitalize',
+  },
+  inputError: {
+    borderColor: LiquidGlassColors.secondary,
+    borderWidth: 1.5,
+  },
+  errorText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '600',
+    color: LiquidGlassColors.secondary,
+    marginTop: Spacing.one,
+  },
+  helperRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  counterText: {
+    fontSize: 12,
+    color: LiquidGlassColors.glassTextSecondary,
+    marginTop: Spacing.one,
+    marginLeft: Spacing.two,
   },
   hint: {
     fontSize: 12,
@@ -518,7 +600,7 @@ const styles = StyleSheet.create({
   },
   smallButton: {
     flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    backgroundColor: LiquidGlassColors.inputBackground,
     borderRadius: Spacing.two,
     borderWidth: 1,
     borderColor: LiquidGlassColors.glassBorder,
@@ -541,7 +623,7 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   categoryButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    backgroundColor: LiquidGlassColors.inputBackground,
     borderRadius: Spacing.two,
     borderWidth: 1,
     borderColor: LiquidGlassColors.glassBorder,
@@ -580,7 +662,7 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    backgroundColor: LiquidGlassColors.inputBackground,
     borderRadius: Spacing.two,
     borderWidth: 1,
     borderColor: LiquidGlassColors.glassBorder,
@@ -616,7 +698,7 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.two,
     borderWidth: 1,
     borderColor: LiquidGlassColors.secondary,
-    backgroundColor: 'rgba(196, 69, 105, 0.08)',
+    backgroundColor: LiquidGlassColors.dangerBackground,
   },
   deleteButtonText: {
     fontSize: 16,

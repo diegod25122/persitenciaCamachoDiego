@@ -4,7 +4,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Expense, CATEGORY_ICONS } from '@/types/expense';
 import { GlassCard } from './GlassCard';
-import { LiquidGlassColors, Spacing } from '@/constants/theme';
+import { LiquidGlassColors, LiquidGlassGradients, Spacing } from '@/constants/theme';
 
 interface ExpenseItemProps {
   expense: Expense;
@@ -38,7 +38,7 @@ export const ExpenseItem: React.FC<ExpenseItemProps> = ({ expense, index, onPres
           <View style={styles.leftSection}>
             <View style={styles.iconContainer}>
               <LinearGradient
-                colors={[LiquidGlassColors.primary, LiquidGlassColors.secondary]}
+                colors={LiquidGlassGradients.primary}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.iconGradient}
@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: LiquidGlassColors.glassText,
-    marginBottom: 2,
+    marginBottom: Spacing.half,
   },
   description: {
     fontSize: 13,
@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: LiquidGlassColors.primary,
-    marginBottom: 2,
+    marginBottom: Spacing.half,
   },
   date: {
     fontSize: 12,

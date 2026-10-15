@@ -7,7 +7,7 @@ import Animated, {
   interpolate,
   SharedValue,
 } from 'react-native-reanimated';
-import { LiquidGlassColors, Spacing } from '@/constants/theme';
+import { LiquidGlassColors, LiquidGlassGradients, Spacing } from '@/constants/theme';
 
 interface GlassCardProps {
   children: React.ReactNode;

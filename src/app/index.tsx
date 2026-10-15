@@ -7,7 +7,7 @@ import { MonthlyHeader } from '@/components/MonthlyHeader';
 import { ExpenseItem } from '@/components/ExpenseItem';
 import { AddExpenseModal } from '@/components/AddExpenseModal';
 import { useExpenses } from '@/context/ExpenseContext';
-import { LiquidGlassColors, Spacing } from '@/constants/theme';
+import { LiquidGlassColors, LiquidGlassGradients, Spacing } from '@/constants/theme';
 import { Expense, SortOption } from '@/types/expense';
 
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
@@ -33,7 +33,7 @@ export default function HomeScreen() {
     <View style={styles.container}>
       <StatusBar style="dark" />
       <LinearGradient
-        colors={['#FFF5F9', '#FFE8F0', '#FFF9FC']}
+        colors={LiquidGlassGradients.screen}
         style={styles.gradient}
       >
         {/* Circulos de color detras: dan algo que desenfocar a las tarjetas */}
@@ -75,7 +75,7 @@ export default function HomeScreen() {
                     >
                       {sortBy === option.value ? (
                         <LinearGradient
-                          colors={[LiquidGlassColors.primary, LiquidGlassColors.secondary]}
+                          colors={LiquidGlassGradients.primary}
                           start={{ x: 0, y: 0 }}
                           end={{ x: 1, y: 1 }}
                           style={styles.sortInner}
@@ -115,7 +115,7 @@ export default function HomeScreen() {
             activeOpacity={0.8}
           >
             <LinearGradient
-              colors={[LiquidGlassColors.primary, LiquidGlassColors.secondary]}
+              colors={LiquidGlassGradients.primary}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.fabGradient}
@@ -154,21 +154,21 @@ const styles = StyleSheet.create({
     height: 220,
     top: 60,
     left: -60,
-    backgroundColor: 'rgba(255, 107, 157, 0.55)',
+    backgroundColor: LiquidGlassColors.orbPink,
   },
   orbOrange: {
     width: 180,
     height: 180,
     top: 260,
     right: -50,
-    backgroundColor: 'rgba(255, 159, 94, 0.5)',
+    backgroundColor: LiquidGlassColors.orbOrange,
   },
   orbPurple: {
     width: 200,
     height: 200,
     bottom: 120,
     left: 20,
-    backgroundColor: 'rgba(168, 120, 220, 0.4)',
+    backgroundColor: LiquidGlassColors.orbPurple,
   },
   content: {
     flex: 1,
@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: LiquidGlassColors.glassBorder,
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    backgroundColor: LiquidGlassColors.inputBackground,
   },
   sortInner: {
     paddingVertical: Spacing.two,

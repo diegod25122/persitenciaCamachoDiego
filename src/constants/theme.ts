@@ -41,6 +41,28 @@ export const LiquidGlassColors = {
   // Sombras
   shadowLight: 'rgba(255, 107, 157, 0.15)',
   shadowDark: 'rgba(196, 69, 105, 0.25)',
+
+  // Superficies translucidas
+  inputBackground: 'rgba(255, 255, 255, 0.5)',   // inputs, chips y botones secundarios
+  panelBackground: 'rgba(255, 255, 255, 0.45)',  // modales y paneles (bajo para que se vea el blur)
+  dangerBackground: 'rgba(196, 69, 105, 0.08)',  // botones de accion destructiva
+
+  // Circulos de color detras del contenido (dan algo que desenfocar)
+  orbPink: 'rgba(255, 107, 157, 0.55)',
+  orbOrange: 'rgba(255, 159, 94, 0.5)',
+  orbPurple: 'rgba(168, 120, 220, 0.4)',
+} as const;
+
+/**
+ * Gradientes del tema, listos para pasar a <LinearGradient colors={...} />
+ */
+export const LiquidGlassGradients = {
+  // Fondo de todas las pantallas
+  screen: ['#FFF5F9', '#FFE8F0', '#FFF9FC'],
+  // Botones principales y elementos seleccionados (solido)
+  primary: [LiquidGlassColors.primary, LiquidGlassColors.secondary],
+  // Encima de una GlassCard: translucido para que se note el blur
+  card: ['rgba(255, 107, 157, 0.7)', 'rgba(196, 69, 105, 0.7)'],
 } as const;
 
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;

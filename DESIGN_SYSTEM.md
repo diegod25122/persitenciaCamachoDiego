@@ -5,17 +5,24 @@ Base visual para crear pantallas y modales nuevos con el mismo estilo. Los valor
 ## Colores y espaciado
 
 ```typescript
-import { LiquidGlassColors, Spacing } from '@/constants/theme';
+import { LiquidGlassColors, LiquidGlassGradients, Spacing } from '@/constants/theme';
 ```
 
-| Uso | Valor |
+| Uso | Token |
 |-----|-------|
-| Gradiente destacado | `primary #FF6B9D` → `secondary #C44569` |
-| Fondo de pantalla | `LinearGradient` con `['#FFF5F9', '#FFE8F0', '#FFF9FC']` |
+| Gradiente destacado (botones, seleccionado) | `LiquidGlassGradients.primary` (`#FF6B9D` → `#C44569`) |
+| Gradiente sobre una `GlassCard` | `LiquidGlassGradients.card` (mismo, al 0.7) |
+| Fondo de pantalla | `LiquidGlassGradients.screen` |
 | Texto principal | `glassText #2C1B47` |
 | Texto secundario | `glassTextSecondary #8B6B8F` |
 | Texto sobre gradiente | `glassTextLight #FFFBF5` |
 | Borde glass | `glassBorder` |
+| Fondo de inputs, chips y botones secundarios | `inputBackground` (blanco 0.5) |
+| Fondo de modales y paneles | `panelBackground` (blanco 0.45) |
+| Fondo de acción destructiva | `dangerBackground` |
+| Círculos de color | `orbPink`, `orbOrange`, `orbPurple` |
+
+No escribas `rgba(...)` ni `#hex` dentro de un componente: si falta un color, agrégalo como token en `theme.ts`.
 
 Espaciado: `Spacing.two` (8) entre elementos, `Spacing.three` (16) padding de cards, `Spacing.four` (24) padding de pantallas.
 
@@ -36,7 +43,10 @@ En Android el blur de `expo-blur` es solo una aproximación; en iOS 26+ existe e
 - **Items de lista:** `GlassCard` dentro de `Animated.View` con `entering={FadeInDown.delay(index * 100).springify()}`. Ver `ExpenseItem.tsx`.
 - **Botones principales:** `LinearGradient` primary → secondary con `start={{x:0,y:0}} end={{x:1,y:1}}`. Ver el FAB en `index.tsx`.
 - **Modal bottom sheet:** copiar la estructura de `AddExpenseModal.tsx` (backdrop con blur, `SlideInDown`, handle, `ScrollView`).
-- **Inputs:** fondo `rgba(255,255,255,0.5)`, `borderWidth: 1`, `glassBorder`, `borderRadius: Spacing.two`.
+- **Inputs:** fondo `inputBackground`, `borderWidth: 1`, `glassBorder`, `borderRadius: Spacing.two`.
+- **Chips de selección** (categorías, orden de la lista): el activo con gradiente `primary` y texto `glassTextLight`; los demás con `inputBackground` y texto `glassText`.
+- **Errores de formulario:** borde `secondary` (1.5) en el campo y texto 12/600 `secondary` debajo. Los obligatorios llevan ` *` en la etiqueta. Ver `AddExpenseModal.tsx`.
+- **Acción destructiva:** borde y texto `secondary`, fondo `dangerBackground`, siempre con `Alert` de confirmación.
 
 ## Teclado (importante)
 

@@ -655,6 +655,13 @@ import DateTimePicker, {
 import { Category, CATEGORIES, CATEGORY_ICONS, Expense } from '@/types/expense';
 import { LiquidGlassColors, Spacing } from '@/constants/theme';
 import { useExpenses } from '@/context/ExpenseContext';
+import {
+  DESCRIPTION_MAX_LENGTH,
+  sanitizeAmountInput,
+  sanitizeDescription,
+  validateAmount,
+  validateDescription,
+} from '@/utils/validation';
 
 interface AddExpenseModalProps {
   visible: boolean;
@@ -681,29 +688,73 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
   const [facturaAdjunta, setFacturaAdjunta] = useState<string | undefined>();
   const [showIosPicker, setShowIosPicker] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  // Mensajes de error de cada campo (null = sin error)
+  const [amountError, setAmountError] = useState<string | null>(null);
+  const [categoryError, setCategoryError] = useState<string | null>(null);
+  const [descriptionError, setDescriptionError] = useState<string | null>(null);
 
   // Cada vez que se abre el modal se cargan los datos del gasto a editar,
   // o se deja el formulario vacio con la fecha de hoy si es uno nuevo
   useEffect(() => {
     if (!visible) return;
-    setAmount(expense ? expense.amount.toString() : '');
+    // Redondeado a 2 decimales por si hay gastos viejos guardados con mas
+    setAmount(expense ? String(Math.round(expense.amount * 100) / 100) : '');
     setCategory(expense?.category ?? null);
     setDescription(expense?.description ?? '');
     setDate(expense ? new Date(expense.date) : new Date());
     setFacturaAdjunta(expense?.facturaAdjunta);
     setShowIosPicker(false);
+    setAmountError(null);
+    setCategoryError(null);
+    setDescriptionError(null);
   }, [visible, expense]);
 
-  // Se acepta coma o punto como separador decimal
-  const parsedAmount = parseFloat(amount.replace(',', '.'));
-  const isValid = !isNaN(parsedAmount) && parsedAmount > 0 && !!category && !!date;
+  // Solo se acepta la tecla si el texto sigue siendo un numero con max. 2 decimales
+  const handleAmountChange = (text: string) => {
+    const sanitized = sanitizeAmountInput(text);
+    if (sanitized === null) return;
+    setAmount(sanitized);
+    if (amountError) setAmountError(null);
+  };
+
+  const handleCategorySelect = (cat: Category) => {
+    setCategory(cat);
+    setCategoryError(null);
+  };
+
+  // Se borran los caracteres especiales al escribir o pegar y se avisa al usuario
+  const handleDescriptionChange = (text: string) => {
+    const { value, hadInvalidChars } = sanitizeDescription(text);
+    setDescription(value);
+    setDescriptionError(
+      hadInvalidChars ? 'Solo se permiten letras, números y espacios.' : null
+    );
+  };
 
   // async porque ahora hay que esperar a que el gasto se guarde en el telefono
   const handleSubmit = async () => {
-    if (!isValid || !category || isSaving) return;
+    if (isSaving) return;
+
+    // Se validan todos los campos y se muestran todos los errores a la vez
+    const newAmountError = validateAmount(amount);
+    const newCategoryError = category ? null : 'Selecciona una categoría para el gasto.';
+    const newDescriptionError = validateDescription(description);
+    setAmountError(newAmountError);
+    setCategoryError(newCategoryError);
+    setDescriptionError(newDescriptionError);
+
+    if (newAmountError || newCategoryError || newDescriptionError || !category) {
+      Alert.alert(
+        'Revisa el formulario',
+        [newAmountError, newCategoryError, newDescriptionError]
+          .filter(Boolean)
+          .join('\n')
+      );
+      return;
+    }
 
     const data = {
-      amount: parsedAmount,
+      amount: parseFloat(amount),
       category,
       date,
       description: description.trim() || undefined,
@@ -856,18 +907,19 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                 </Text>
 
                 <View style={styles.inputSection}>
-                  <Text style={styles.label}>Monto (USD)</Text>
-                  <View style={styles.inputContainer}>
+                  <Text style={styles.label}>Monto (USD) *</Text>
+                  <View style={[styles.inputContainer, amountError && styles.inputError]}>
                     <Text style={styles.currencySymbol}>$</Text>
                     <TextInput
                       style={styles.input}
                       value={amount}
-                      onChangeText={setAmount}
+                      onChangeText={handleAmountChange}
                       placeholder="0.00"
                       keyboardType="decimal-pad"
                       placeholderTextColor={LiquidGlassColors.glassTextSecondary}
                     />
                   </View>
+                  {amountError && <Text style={styles.errorText}>{amountError}</Text>}
                 </View>
 
                 <View style={styles.inputSection}>
@@ -895,7 +947,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                 </View>
 
                 <View style={styles.inputSection}>
-                  <Text style={styles.label}>Categoría</Text>
+                  <Text style={styles.label}>Categoría *</Text>
                   <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
@@ -906,7 +958,7 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                     {CATEGORIES.map((cat) => (
                       <TouchableOpacity
                         key={cat}
-                        onPress={() => setCategory(cat)}
+                        onPress={() => handleCategorySelect(cat)}
                         style={[
                           styles.categoryButton,
                           category === cat && styles.categoryButtonActive,
@@ -938,18 +990,30 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
+                  {categoryError && <Text style={styles.errorText}>{categoryError}</Text>}
                 </View>
 
                 <View style={styles.inputSection}>
                   <Text style={styles.label}>Descripción (opcional)</Text>
                   <TextInput
-                    style={[styles.input, styles.descriptionInput]}
+                    style={[
+                      styles.input,
+                      styles.descriptionInput,
+                      descriptionError && styles.inputError,
+                    ]}
                     value={description}
-                    onChangeText={setDescription}
-                    placeholder="Ej: Almuerzo, transporte a la universidad..."
+                    onChangeText={handleDescriptionChange}
+                    placeholder="Ej: Almuerzo en la universidad"
                     placeholderTextColor={LiquidGlassColors.glassTextSecondary}
+                    maxLength={DESCRIPTION_MAX_LENGTH}
                     multiline
                   />
+                  <View style={styles.helperRow}>
+                    <Text style={styles.errorText}>{descriptionError ?? ''}</Text>
+                    <Text style={styles.counterText}>
+                      {description.length}/{DESCRIPTION_MAX_LENGTH}
+                    </Text>
+                  </View>
                 </View>
 
                 <View style={styles.inputSection}>
@@ -992,10 +1056,10 @@ export const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
                   <TouchableOpacity
                     style={[
                       styles.submitButton,
-                      (!isValid || isSaving) && styles.submitButtonDisabled,
+                      isSaving && styles.submitButtonDisabled,
                     ]}
                     onPress={handleSubmit}
-                    disabled={!isValid || isSaving}
+                    disabled={isSaving}
                   >
                     <LinearGradient
                       colors={[LiquidGlassColors.primary, LiquidGlassColors.secondary]}
@@ -1130,6 +1194,27 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: LiquidGlassColors.glassText,
     textTransform: 'capitalize',
+  },
+  inputError: {
+    borderColor: LiquidGlassColors.secondary,
+    borderWidth: 1.5,
+  },
+  errorText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '600',
+    color: LiquidGlassColors.secondary,
+    marginTop: Spacing.one,
+  },
+  helperRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  counterText: {
+    fontSize: 12,
+    color: LiquidGlassColors.glassTextSecondary,
+    marginTop: Spacing.one,
+    marginLeft: Spacing.two,
   },
   hint: {
     fontSize: 12,
@@ -2053,6 +2138,67 @@ export function deleteReceipt(uri?: string): void {
   } catch (error) {
     console.warn('No se pudo borrar la foto de la factura', error);
   }
+}
+
+
+================================================
+ðŸ“„ ARCHIVO: src\utils\validation.ts
+================================================
+
+// Reglas de validacion del formulario de gastos
+
+export const DESCRIPTION_MAX_LENGTH = 400;
+
+// Monto: solo digitos, un punto opcional y como maximo 2 decimales.
+// Ej. validos mientras se escribe: "", "15", "15.", "15.5", "15.50"
+const AMOUNT_PATTERN = /^\d{0,7}(\.\d{0,2})?$/;
+
+// Descripcion: letras (incluye tildes, ü y ñ), numeros y espacios
+const DESCRIPTION_ALLOWED = /^[a-zA-Z0-9áéíóúÁÉÍÓÚüÜñÑ\s]*$/;
+// Misma lista pero al reves: sirve para borrar los caracteres que no se permiten
+const DESCRIPTION_INVALID_CHARS = /[^a-zA-Z0-9áéíóúÁÉÍÓÚüÜñÑ\s]/g;
+
+// Se llama en cada tecla. Devuelve el nuevo texto del monto,
+// o null si lo escrito no es valido (y entonces se ignora la tecla).
+export function sanitizeAmountInput(text: string): string | null {
+  // Algunos teclados escriben coma en vez de punto
+  const normalized = text.replace(',', '.');
+  return AMOUNT_PATTERN.test(normalized) ? normalized : null;
+}
+
+// Devuelve el mensaje de error del monto, o null si esta bien
+export function validateAmount(amount: string): string | null {
+  if (amount.trim() === '') return 'El monto es obligatorio.';
+  const value = parseFloat(amount);
+  if (isNaN(value) || !AMOUNT_PATTERN.test(amount)) {
+    return 'Ingresa un número válido con máximo 2 decimales.';
+  }
+  if (value <= 0) return 'El monto debe ser mayor que 0.';
+  return null;
+}
+
+// Quita los caracteres especiales y corta al tamaño maximo.
+// hadInvalidChars avisa si se quito algo, para mostrarle un mensaje al usuario.
+export function sanitizeDescription(text: string): {
+  value: string;
+  hadInvalidChars: boolean;
+} {
+  const cleaned = text.replace(DESCRIPTION_INVALID_CHARS, '');
+  return {
+    value: cleaned.slice(0, DESCRIPTION_MAX_LENGTH),
+    hadInvalidChars: cleaned.length !== text.length,
+  };
+}
+
+// Devuelve el mensaje de error de la descripcion, o null si esta bien (es opcional)
+export function validateDescription(description: string): string | null {
+  if (description.length > DESCRIPTION_MAX_LENGTH) {
+    return `La descripción no puede superar los ${DESCRIPTION_MAX_LENGTH} caracteres.`;
+  }
+  if (!DESCRIPTION_ALLOWED.test(description)) {
+    return 'La descripción solo puede tener letras, números y espacios.';
+  }
+  return null;
 }
 
 
