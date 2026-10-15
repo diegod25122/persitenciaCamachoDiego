@@ -25,7 +25,7 @@ function rowToExpense(row: ExpenseRow): Expense {
     facturaAdjunta: row.factura_adjuntar ?? undefined,
   };
 }
-// devuelve todos los gastos del mas recinte al mas antiguio de la bdd
+// devuelve todos los gastos dels recinte al mas antiguio de la bdd
 
 export async function getAllExpenses(db: SQLiteDatabase): Promise<Expense[]> {
     //getAllAsync ejecuta un select y devuelve uun arreglo con todas las filas
